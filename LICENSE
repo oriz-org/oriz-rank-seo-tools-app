@@ -1,0 +1,25 @@
+Oriz Source-Available License
+Copyright (c) 2026 Chirag Singhal
+
+The source code in this repository is made publicly available for reference,
+study, and transparency. All rights are reserved by the copyright holder.
+
+You MAY:
+  - View and read the source code.
+  - Fork the repository for the purpose of submitting contributions back to
+    the original project via pull request.
+  - Run the code locally for personal evaluation and learning.
+
+You MAY NOT, without prior written permission from the copyright holder:
+  - Use the code, in whole or in part, in any production, commercial, or
+    publicly-hosted service.
+  - Redistribute, sublicense, or sell the code or any derivative work.
+  - Remove or alter this license or any copyright notices.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.

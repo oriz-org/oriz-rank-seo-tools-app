@@ -1,0 +1,60 @@
+# GitHub Pages mirror — failover only.
+#
+# Cloudflare Pages is the primary host for every site in the chirag127/oriz
+# family (see knowledge/decisions/infrastructure/cloudflare-pages-for-all-sites.md).
+# This workflow publishes the same build artefact to GitHub Pages so we have
+# a passive failover URL (`<repo>.<owner>.github.io`) in case CF Pages goes
+# down. Not a dual-active deploy — apex DNS stays on Cloudflare; the GH Pages
+# URL is referenced manually during incidents.
+#
+# The repo name drives `PUBLIC_BASE_PATH` so the build output works at the
+# GH Pages subpath (`/<repo>/`). The same source builds at `/` for CF Pages.
+
+name: Mirror to GH Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'astro.config.*'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: gh-pages-mirror
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm run build
+        env:
+          PUBLIC_BASE_PATH: /${{ github.event.repository.name }}/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

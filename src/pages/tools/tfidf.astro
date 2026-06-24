@@ -1,15 +1,34 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="TF-IDF analyser — Oriz SEO" description="TF-IDF analyser — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="TF-IDF analysis — Oriz SEO" description="Compare term importance across multiple documents using TF-IDF. Runs in your browser.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">TF-IDF analyser</h1>
-    <p class="status mono">coming · v0.1</p>
-    <p class="lede">
-      This feature is on the v0.1 roadmap. The page exists so we can iterate on
-      the design and copy in parallel; the implementation lands next sprint.
-    </p>
+    <h1 class="h1">TF-IDF analysis</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste one document per panel; we compute term frequency × inverse document frequency for each, surfacing the terms that distinguish each document from the others. Useful for content-gap analysis. Runs in your browser.</p>
+
+    <div class="app">
+      <div class="docs" id="docs">
+        <label class="lbl">Document 1
+          <textarea class="io doc" rows="6" placeholder="Paste document 1…"></textarea>
+        </label>
+        <label class="lbl">Document 2
+          <textarea class="io doc" rows="6" placeholder="Paste document 2…"></textarea>
+        </label>
+        <label class="lbl">Document 3
+          <textarea class="io doc" rows="6" placeholder="Paste document 3…"></textarea>
+        </label>
+      </div>
+      <div class="row">
+        <label class="lbl mini">Top N per doc <input id="topn" type="number" class="ctrl" value="15" min="5" max="50" /></label>
+        <label class="lbl mini check"><input id="stop" type="checkbox" checked /> filter stop words</label>
+        <button id="add" class="btn">+ add document</button>
+        <button id="run" class="btn primary">Run TF-IDF</button>
+      </div>
+      <div id="out" class="out hidden"></div>
+      <div id="err" class="err hidden"></div>
+    </div>
   </article>
 </BaseLayout>
 
@@ -21,18 +40,81 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
   .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
-  .io {
-    width: 100%;
-    padding: 1rem;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    resize: vertical;
-  }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin-bottom: 2rem; }
+  .app { display: flex; flex-direction: column; gap: 1rem; }
+  .docs { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .lbl { display: flex; flex-direction: column; gap: 0.4rem; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .lbl.mini { flex-direction: row; align-items: center; gap: 0.5rem; }
+  .check { color: var(--ink); }
+  .io { width: 100%; padding: 0.75rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); font-family: var(--font-mono); font-size: 0.875rem; resize: vertical; }
+  .ctrl { padding: 0.35rem 0.5rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); font-family: var(--font-mono); width: 60px; }
+  .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+  .btn { padding: 0.6rem 1rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); cursor: pointer; font-family: var(--font-mono); font-size: 12px; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .out { background: var(--paper-2); border: 1px solid var(--rule); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; }
+  .err { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .hidden { display: none; }
+  .doctable { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .doctable h3 { font-family: var(--font-display); font-size: 1rem; margin: 0 0 0.5rem; }
+  .doctable table { width: 100%; border-collapse: collapse; }
+  .doctable td { padding: 0.2rem 0.3rem; border-bottom: 1px dotted var(--rule); }
+  .doctable td:first-child { color: var(--ink); }
+  .doctable td:last-child { text-align: right; color: var(--muted); }
 </style>
+
+<script is:inline>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const out = $('out'), err = $('err'), docs = $('docs');
+    const show = (el, t) => { el.innerHTML = t; el.classList.remove('hidden'); };
+    const hide = (el) => el.classList.add('hidden');
+
+    const STOP = new Set('a an the and or but if then else when at by for from in into of off on onto out over to up with as is are was were be been being have has had do does did doing this that these those i you he she it we they them his her our your their its not no nor so too very can will just don should now also more most some such only own same other than then there here where why how what who whom which while about against between through during before after above below'.split(/\s+/));
+
+    function tokens(text, useStop) {
+      const arr = (text.toLowerCase().match(/[a-z0-9'-]{2,}/g) || []);
+      return useStop ? arr.filter((w) => !STOP.has(w)) : arr;
+    }
+
+    $('add').addEventListener('click', () => {
+      const n = docs.querySelectorAll('.doc').length + 1;
+      const wrap = document.createElement('label');
+      wrap.className = 'lbl';
+      wrap.innerHTML = `Document ${n}<textarea class="io doc" rows="6" placeholder="Paste document ${n}…"></textarea>`;
+      docs.appendChild(wrap);
+    });
+
+    $('run').addEventListener('click', () => {
+      hide(err); hide(out);
+      const useStop = $('stop').checked;
+      const topN = Math.max(1, parseInt($('topn').value, 10) || 15);
+      const raw = Array.from(docs.querySelectorAll('.doc')).map((t) => t.value.trim());
+      const nonEmpty = raw.map((s, i) => ({ s, i })).filter((d) => d.s);
+      if (nonEmpty.length < 2) { err.textContent = 'Add at least 2 non-empty documents.'; err.classList.remove('hidden'); return; }
+
+      const tokenized = nonEmpty.map((d) => tokens(d.s, useStop));
+      const N = tokenized.length;
+      const df = new Map();
+      tokenized.forEach((toks) => {
+        const seen = new Set(toks);
+        seen.forEach((w) => df.set(w, (df.get(w) || 0) + 1));
+      });
+
+      const html = ['<div class="doctable">'];
+      tokenized.forEach((toks, idx) => {
+        const tf = new Map();
+        toks.forEach((w) => tf.set(w, (tf.get(w) || 0) + 1));
+        const total = toks.length || 1;
+        const scored = [...tf.entries()].map(([w, c]) => {
+          const idf = Math.log(N / (df.get(w) || 1));
+          return { w, score: (c / total) * idf, c };
+        }).sort((a, b) => b.score - a.score).slice(0, topN);
+        const rows = scored.map((r) => `<tr><td>${r.w}</td><td>${r.score.toFixed(4)} (×${r.c})</td></tr>`).join('');
+        html.push(`<div><h3>Doc ${nonEmpty[idx].i + 1}</h3><table>${rows || '<tr><td colspan="2">(no terms)</td></tr>'}</table></div>`);
+      });
+      html.push('</div>');
+      show(out, html.join(''));
+    });
+  })();
+</script>

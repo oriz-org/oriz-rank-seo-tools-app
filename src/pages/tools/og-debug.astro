@@ -1,15 +1,55 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="OG debugger — Oriz SEO" description="OG debugger — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="OG Image Preview — Oriz SEO" description="Paste a URL to fetch and display the og:image. See how your Open Graph image looks across social platforms.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">OG debugger</h1>
-    <p class="status mono">coming · v0.1</p>
-    <p class="lede">
-      This feature is on the v0.1 roadmap. The page exists so we can iterate on
-      the design and copy in parallel; the implementation lands next sprint.
-    </p>
+    <h1 class="h1">OG Image Preview</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste a URL to fetch its <code class="code">og:image</code> and preview it at the sizes used by Twitter, Facebook, and LinkedIn.</p>
+
+    <div class="og-app">
+      <div class="url-row">
+        <input id="url-input" type="url" class="field-input" placeholder="https://example.com/" />
+        <button id="fetch-btn" class="btn-primary">Fetch</button>
+      </div>
+      <p id="fetch-error" class="error-msg hidden"></p>
+
+      <div id="results" class="results hidden">
+        <p class="og-url-label mono">og:image URL: <a id="og-img-url" href="#" target="_blank" rel="noopener" class="og-link"></a></p>
+
+        <div class="previews-grid">
+          <div class="preview-card">
+            <p class="pcard-label mono">Twitter summary_large_image (1200×628)</p>
+            <div class="img-wrap tw-size">
+              <img id="tw-img" class="og-img" src="" alt="Twitter OG preview" />
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <p class="pcard-label mono">Facebook link post (1200×630)</p>
+            <div class="img-wrap fb-size">
+              <img id="fb-img" class="og-img" src="" alt="Facebook OG preview" />
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <p class="pcard-label mono">LinkedIn (1200×627)</p>
+            <div class="img-wrap li-size">
+              <img id="li-img" class="og-img" src="" alt="LinkedIn OG preview" />
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <p class="pcard-label mono">Actual size</p>
+            <div class="img-wrap natural-size">
+              <img id="nat-img" class="og-img natural" src="" alt="Natural size OG image" />
+            </div>
+            <p id="nat-dims" class="nat-dims mono"></p>
+          </div>
+        </div>
+      </div>
+    </div>
   </article>
 </BaseLayout>
 
@@ -19,20 +59,91 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .back a { color: var(--muted); text-decoration: none; }
   .back a:hover { color: var(--ink); }
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
-  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
+  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 0.5rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
-  .io {
-    width: 100%;
-    padding: 1rem;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    resize: vertical;
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin: 0 0 2rem; }
+  .code { font-family: var(--font-mono); font-size: 0.9em; background: var(--paper-2); padding: 1px 4px; border-radius: 2px; }
+
+  .og-app { max-width: 72ch; }
+  .url-row { display: flex; gap: 0.5rem; }
+  .field-input {
+    flex: 1; padding: 0.6rem 0.75rem;
+    background: var(--paper-2); border: 1px solid var(--rule);
+    color: var(--ink); font-family: var(--font-display); font-size: 0.9375rem;
   }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .field-input:focus { outline: none; border-color: var(--accent); }
+  .btn-primary {
+    padding: 0.6rem 1.25rem; background: var(--accent); border: none;
+    color: #fff; font-family: var(--font-display); font-size: 0.875rem;
+    font-weight: 500; cursor: pointer; transition: opacity 120ms;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { font-size: 0.875rem; color: var(--accent); margin-top: 0.5rem; }
+  .hidden { display: none; }
+
+  .results { margin-top: 2rem; }
+  .og-url-label { font-size: 12px; color: var(--muted); margin: 0 0 1.5rem; }
+  .og-link { color: var(--accent); word-break: break-all; font-size: 12px; }
+
+  .previews-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+  @media (min-width: 700px) { .previews-grid { grid-template-columns: 1fr 1fr; } }
+
+  .preview-card { }
+  .pcard-label { font-size: 11px; color: var(--muted); letter-spacing: 0.07em; margin: 0 0 0.5rem; text-transform: uppercase; }
+
+  .img-wrap { overflow: hidden; background: var(--paper-2); border: 1px solid var(--rule); }
+  .tw-size { width: 100%; aspect-ratio: 600/314; }
+  .fb-size { width: 100%; aspect-ratio: 600/315; }
+  .li-size { width: 100%; aspect-ratio: 600/314; }
+  .natural-size { width: 100%; }
+  .og-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .og-img.natural { height: auto; object-fit: unset; }
+  .nat-dims { font-size: 11px; color: var(--muted); margin: 0.25rem 0 0; }
 </style>
+
+<script>
+  const fetchBtn = document.getElementById('fetch-btn') as HTMLButtonElement
+  const urlInput = document.getElementById('url-input') as HTMLInputElement
+  const fetchError = document.getElementById('fetch-error')!
+  const results = document.getElementById('results')!
+
+  fetchBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim()
+    if (!url) return
+    fetchBtn.disabled = true; fetchBtn.textContent = 'Fetching…'
+    fetchError.classList.add('hidden'); results.classList.add('hidden')
+    try {
+      const res = await fetch(`/api/fetch-meta?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      const imgUrl = data.ogImage || data.twitterImage
+      if (!imgUrl) throw new Error('No og:image or twitter:image found for this URL')
+      renderImage(imgUrl)
+    } catch (err) {
+      fetchError.textContent = `Error: ${(err as Error).message}`
+      fetchError.classList.remove('hidden')
+    } finally {
+      fetchBtn.disabled = false; fetchBtn.textContent = 'Fetch'
+    }
+  })
+
+  function renderImage(imgUrl: string) {
+    const linkEl = document.getElementById('og-img-url') as HTMLAnchorElement
+    linkEl.textContent = imgUrl; linkEl.href = imgUrl
+
+    ;['tw-img','fb-img','li-img'].forEach(id => {
+      const img = document.getElementById(id) as HTMLImageElement
+      img.src = imgUrl
+    })
+
+    const natImg = document.getElementById('nat-img') as HTMLImageElement
+    natImg.src = imgUrl
+    natImg.onload = () => {
+      document.getElementById('nat-dims')!.textContent = `${natImg.naturalWidth} × ${natImg.naturalHeight} px`
+    }
+    results.classList.remove('hidden')
+  }
+
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchBtn.click() })
+</script>

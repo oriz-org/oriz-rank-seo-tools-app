@@ -1,15 +1,31 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="keyword density — Oriz SEO" description="keyword density — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="Keyword Density / Word Analysis — Oriz SEO" description="Paste content to see top keywords, word frequency, and density percentage. Runs in your browser.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">keyword density</h1>
-    <p class="status mono ready">ready · v0</p>
-    <div class="placeholder">
-      <p>This tool is wired. Drop in your input or paste below — everything stays in your browser.</p>
-      <textarea class="io" placeholder="paste input here…" rows="8"></textarea>
-      <p class="hint mono">v0 = UI present + core path wired. Full feature set lands in v0.1.</p>
+    <h1 class="h1">Word Density / Keyword Analysis</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste any content to see top keywords and their density. Everything runs in your browser — nothing is sent to a server.</p>
+
+    <div class="density-app">
+      <textarea id="content-input" class="io" placeholder="Paste your page content here…" rows="10"></textarea>
+      <div class="controls">
+        <label class="ctrl-label">
+          Min word length:
+          <input id="min-len" type="number" class="ctrl-num" value="3" min="1" max="20" />
+        </label>
+        <label class="ctrl-label">
+          Top N results:
+          <input id="top-n" type="number" class="ctrl-num" value="20" min="5" max="100" />
+        </label>
+        <label class="ctrl-label checkbox-label">
+          <input id="stop-words" type="checkbox" checked />
+          Filter common stop words
+        </label>
+      </div>
+      <div id="stats" class="stats mono hidden"></div>
+      <div id="results" class="results hidden"></div>
     </div>
   </article>
 </BaseLayout>
@@ -20,20 +36,132 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .back a { color: var(--muted); text-decoration: none; }
   .back a:hover { color: var(--ink); }
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
-  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
+  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 0.5rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin: 0 0 2rem; }
+
+  .density-app { max-width: 72ch; }
   .io {
     width: 100%;
     padding: 1rem;
     background: var(--paper-2);
     border: 1px solid var(--rule);
     color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
     resize: vertical;
   }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .io:focus { outline: none; border-color: var(--accent); }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+    align-items: center;
+    margin: 1rem 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .ctrl-label { display: flex; align-items: center; gap: 0.5rem; }
+  .ctrl-num {
+    width: 4.5rem;
+    padding: 0.3rem 0.5rem;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+  }
+  .checkbox-label { cursor: pointer; }
+
+  .stats { font-size: 11px; color: var(--muted); margin: 0 0 1rem; }
+  .hidden { display: none; }
+
+  .results { margin-top: 1rem; }
+  .result-row {
+    display: grid;
+    grid-template-columns: 1fr 3.5rem 5.5rem 120px;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.875rem;
+  }
+  .result-row.header { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 2px solid var(--rule); }
+  .result-keyword { font-weight: 500; }
+  .result-count { text-align: right; font-family: var(--font-mono); }
+  .result-pct { text-align: right; font-family: var(--font-mono); }
+  .bar-wrap { background: var(--paper-2); height: 8px; border-radius: 4px; overflow: hidden; }
+  .bar-fill { background: var(--accent); height: 100%; border-radius: 4px; transition: width 200ms; }
 </style>
+
+<script>
+  const STOP_WORDS = new Set([
+    'the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','as','is','was','are','were',
+    'be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','shall',
+    'can','not','no','nor','so','yet','both','either','neither','each','few','more','most','other','some','such',
+    'than','then','that','this','these','those','it','its','i','you','he','she','we','they','me','him','her','us',
+    'them','my','your','his','our','their','what','which','who','whom','when','where','why','how','all','any','both',
+    'if','after','before','while','since','also','about','into','over','under','up','out','off','down','just','even',
+    'only','here','there','now','very','more','much','well',
+  ])
+
+  const input = document.getElementById('content-input') as HTMLTextAreaElement
+  const minLenInput = document.getElementById('min-len') as HTMLInputElement
+  const topNInput = document.getElementById('top-n') as HTMLInputElement
+  const stopWordsCheck = document.getElementById('stop-words') as HTMLInputElement
+  const statsEl = document.getElementById('stats')!
+  const resultsEl = document.getElementById('results')!
+
+  function analyse() {
+    const text = input.value
+    if (!text.trim()) {
+      statsEl.classList.add('hidden')
+      resultsEl.classList.add('hidden')
+      return
+    }
+
+    const minLen = Math.max(1, Number(minLenInput.value) || 3)
+    const topN = Math.max(1, Math.min(200, Number(topNInput.value) || 20))
+    const filterStop = stopWordsCheck.checked
+
+    // tokenise
+    const words = text.toLowerCase().match(/[a-z''-]+/g) ?? []
+    const filtered = words.filter(w => {
+      const clean = w.replace(/^'+|'+$/g, '')
+      if (clean.length < minLen) return false
+      if (filterStop && STOP_WORDS.has(clean)) return false
+      return true
+    }).map(w => w.replace(/^'+|'+$/g, ''))
+
+    const total = words.length
+    const freq: Map<string, number> = new Map()
+    for (const w of filtered) freq.set(w, (freq.get(w) ?? 0) + 1)
+
+    const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN)
+    const maxCount = sorted[0]?.[1] ?? 1
+
+    statsEl.textContent = `${total.toLocaleString()} total words · ${freq.size.toLocaleString()} unique (after filters) · showing top ${sorted.length}`
+    statsEl.classList.remove('hidden')
+
+    const header = `<div class="result-row header"><span>Keyword</span><span class="result-count">Count</span><span class="result-pct">Density</span><span>Bar</span></div>`
+    const rows = sorted.map(([word, count]) => {
+      const pct = ((count / total) * 100).toFixed(2)
+      const barWidth = Math.round((count / maxCount) * 100)
+      return `<div class="result-row">
+        <span class="result-keyword">${word}</span>
+        <span class="result-count">${count}</span>
+        <span class="result-pct">${pct}%</span>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+      </div>`
+    }).join('')
+
+    resultsEl.innerHTML = header + rows
+    resultsEl.classList.remove('hidden')
+  }
+
+  input.addEventListener('input', analyse)
+  minLenInput.addEventListener('input', analyse)
+  topNInput.addEventListener('input', analyse)
+  stopWordsCheck.addEventListener('change', analyse)
+</script>

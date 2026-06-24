@@ -1,5 +1,6 @@
 ---
 import '~/styles/global.css'
+import FamilySidebar from '@chirag127/astro-shell/components/FamilySidebar.astro'
 
 interface Props {
   title?: string
@@ -38,7 +39,21 @@ const canonical = new URL(Astro.url.pathname, 'https://seo.oriz.in').toString()
         <a href="https://auth.oriz.in/sign-in">sign in</a>
       </nav>
     </header>
-    <main id="main"><slot /></main>
+    <div class="oriz-shell">
+      <FamilySidebar slug="oriz-rank-seo-tools-app" title="SEO Tools">
+        <a slot="tools" href="/tools/density/">Keyword density</a>
+        <a slot="tools" href="/tools/indexnow/">IndexNow ping</a>
+        <a slot="tools" href="/tools/meta-check/">Meta tag check</a>
+        <a slot="tools" href="/tools/og-debug/">OG debugger</a>
+        <a slot="tools" href="/tools/psi/">PageSpeed insights</a>
+        <a slot="tools" href="/tools/robots/">robots.txt tester</a>
+        <a slot="tools" href="/tools/schema/">Schema validator</a>
+        <a slot="tools" href="/tools/serp/">SERP preview</a>
+        <a slot="tools" href="/tools/sitemap/">Sitemap inspector</a>
+        <a slot="tools" href="/tools/tfidf/">TF-IDF analysis</a>
+      </FamilySidebar>
+      <main id="main" class="oriz-main"><slot /></main>
+    </div>
     <footer class="site">
       <span>Oriz SEO · part of the <a href="https://oriz.in">oriz</a> family · runs in your browser</span>
       <span>

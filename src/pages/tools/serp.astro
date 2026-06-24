@@ -1,15 +1,45 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="SERP preview (Google / Bing) — Oriz SEO" description="SERP preview (Google / Bing) — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="Title & Description Length Checker — Oriz SEO" description="Live character count and Google SERP preview for your title and meta description.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">SERP preview (Google / Bing)</h1>
-    <p class="status mono ready">ready · v0</p>
-    <div class="placeholder">
-      <p>This tool is wired. Drop in your input or paste below — everything stays in your browser.</p>
-      <textarea class="io" placeholder="paste input here…" rows="8"></textarea>
-      <p class="hint mono">v0 = UI present + core path wired. Full feature set lands in v0.1.</p>
+    <h1 class="h1">Title + Description Length Checker</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Live character count with Google SERP preview. Optimal: title 50–60 chars, description 150–160 chars.</p>
+
+    <div id="serp-app" class="serp-app">
+      <div class="field-group">
+        <label class="field-label" for="serp-title">Page Title</label>
+        <input id="serp-title" type="text" class="field-input" placeholder="My awesome page title…" maxlength="200" />
+        <div class="char-row">
+          <span id="title-count" class="char-count mono">0 / 60</span>
+          <span id="title-status" class="char-status mono"></span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="serp-desc">Meta Description</label>
+        <textarea id="serp-desc" class="field-input textarea" placeholder="Describe your page in 150–160 characters…" maxlength="500" rows="3"></textarea>
+        <div class="char-row">
+          <span id="desc-count" class="char-count mono">0 / 160</span>
+          <span id="desc-status" class="char-status mono"></span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="serp-url">URL (display)</label>
+        <input id="serp-url" type="text" class="field-input" placeholder="https://example.com/page" />
+      </div>
+
+      <div class="preview-section">
+        <p class="preview-label mono">Google SERP Preview</p>
+        <div class="serp-card">
+          <p class="serp-url" id="preview-url">https://example.com/page</p>
+          <p class="serp-title" id="preview-title">Your page title will appear here</p>
+          <p class="serp-desc" id="preview-desc">Your meta description will appear here. Make it compelling and relevant to drive clicks from search results.</p>
+        </div>
+      </div>
     </div>
   </article>
 </BaseLayout>
@@ -20,20 +50,88 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .back a { color: var(--muted); text-decoration: none; }
   .back a:hover { color: var(--ink); }
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
-  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
+  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 0.5rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
-  .io {
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin: 0 0 2rem; }
+
+  .serp-app { max-width: 64ch; }
+  .field-group { margin-bottom: 1.5rem; }
+  .field-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem; }
+  .field-input {
     width: 100%;
-    padding: 1rem;
+    padding: 0.6rem 0.75rem;
     background: var(--paper-2);
     border: 1px solid var(--rule);
     color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    resize: vertical;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    outline: none;
+    transition: border-color 120ms;
   }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .field-input:focus { border-color: var(--accent); }
+  .textarea { resize: vertical; font-family: var(--font-display); }
+  .char-row { display: flex; align-items: center; gap: 1rem; margin-top: 0.35rem; }
+  .char-count { font-size: 11px; color: var(--muted); }
+  .char-status { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .status-optimal { color: #16a34a; }
+  .status-warn { color: #d97706; }
+  .status-over { color: #dc2626; }
+
+  .preview-section { margin-top: 2rem; }
+  .preview-label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.75rem; }
+  .serp-card {
+    border: 1px solid var(--rule);
+    padding: 1rem 1.25rem;
+    background: #fff;
+    max-width: 600px;
+    font-family: arial, sans-serif;
+  }
+  .serp-url { font-size: 14px; color: #202124; margin: 0 0 2px; }
+  .serp-title { font-size: 20px; color: #1a0dab; margin: 0 0 4px; line-height: 1.3; cursor: pointer; }
+  .serp-title:hover { text-decoration: underline; }
+  .serp-desc { font-size: 14px; color: #4d5156; margin: 0; line-height: 1.58; }
 </style>
+
+<script>
+  const titleInput = document.getElementById('serp-title') as HTMLInputElement
+  const descInput = document.getElementById('serp-desc') as HTMLTextAreaElement
+  const urlInput = document.getElementById('serp-url') as HTMLInputElement
+  const titleCount = document.getElementById('title-count')!
+  const titleStatus = document.getElementById('title-status')!
+  const descCount = document.getElementById('desc-count')!
+  const descStatus = document.getElementById('desc-status')!
+  const previewTitle = document.getElementById('preview-title')!
+  const previewDesc = document.getElementById('preview-desc')!
+  const previewUrl = document.getElementById('preview-url')!
+
+  function classify(n: number, lo: number, hi: number): [string, string] {
+    if (n === 0) return ['', '']
+    if (n < lo) return ['status-warn', 'Too short']
+    if (n <= hi) return ['status-optimal', 'Optimal']
+    return ['status-over', 'Too long']
+  }
+
+  function update() {
+    const t = titleInput.value
+    const d = descInput.value
+    const u = urlInput.value
+
+    titleCount.textContent = `${t.length} / 60`
+    const [tc, ts] = classify(t.length, 50, 60)
+    titleStatus.className = `char-status mono ${tc}`
+    titleStatus.textContent = ts
+
+    descCount.textContent = `${d.length} / 160`
+    const [dc, ds] = classify(d.length, 150, 160)
+    descStatus.className = `char-status mono ${dc}`
+    descStatus.textContent = ds
+
+    previewTitle.textContent = t || 'Your page title will appear here'
+    previewDesc.textContent = d || 'Your meta description will appear here. Make it compelling and relevant to drive clicks from search results.'
+    previewUrl.textContent = u || 'https://example.com/page'
+  }
+
+  titleInput.addEventListener('input', update)
+  descInput.addEventListener('input', update)
+  urlInput.addEventListener('input', update)
+</script>

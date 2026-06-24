@@ -1,15 +1,31 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="robots.txt tester — Oriz SEO" description="robots.txt tester — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="robots.txt tester — Oriz SEO" description="Test whether a URL path is allowed for a given user-agent by your robots.txt. Runs in your browser.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
     <h1 class="h1">robots.txt tester</h1>
-    <p class="status mono">coming · v0.1</p>
-    <p class="lede">
-      This feature is on the v0.1 roadmap. The page exists so we can iterate on
-      the design and copy in parallel; the implementation lands next sprint.
-    </p>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste your robots.txt, type a path and user-agent, and see whether crawling is allowed. Longest-match wins, per RFC 9309.</p>
+
+    <div class="app">
+      <label class="lbl">robots.txt
+        <textarea id="robots" class="io" rows="10" placeholder="User-agent: *&#10;Disallow: /admin/&#10;Allow: /admin/login&#10;&#10;User-agent: Googlebot&#10;Disallow: /private/"></textarea>
+      </label>
+      <div class="row">
+        <label class="lbl grow">Path
+          <input id="path" class="io" type="text" placeholder="/admin/login" />
+        </label>
+        <label class="lbl grow">User-agent
+          <input id="ua" class="io" type="text" placeholder="Googlebot" value="*" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="test" class="btn primary">Test</button>
+      </div>
+      <div id="out" class="out hidden"></div>
+      <div id="err" class="err hidden"></div>
+    </div>
   </article>
 </BaseLayout>
 
@@ -21,18 +37,101 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
   .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
-  .io {
-    width: 100%;
-    padding: 1rem;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    resize: vertical;
-  }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; margin-bottom: 2rem; }
+  .app { display: flex; flex-direction: column; gap: 1rem; }
+  .lbl { display: flex; flex-direction: column; gap: 0.4rem; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .lbl.grow { flex: 1; min-width: 200px; }
+  .io { width: 100%; padding: 0.75rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); font-family: var(--font-mono); font-size: 0.875rem; resize: vertical; }
+  .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .btn { padding: 0.6rem 1rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); cursor: pointer; font-family: var(--font-mono); font-size: 12px; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .out { background: var(--paper-2); border: 1px solid var(--rule); padding: 1rem; font-family: var(--font-mono); font-size: 0.85rem; white-space: pre-wrap; }
+  .out.allow { border-left: 3px solid var(--accent); }
+  .err { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .hidden { display: none; }
 </style>
+
+<script is:inline>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const out = $('out'), err = $('err');
+    const show = (el, t, cls) => { el.textContent = t; el.classList.remove('hidden'); if (cls) el.classList.add(cls); else el.classList.remove('allow'); };
+    const hide = (el) => el.classList.add('hidden');
+
+    function parse(txt) {
+      const groups = []; let cur = null;
+      for (const raw of txt.split(/\r?\n/)) {
+        const line = raw.replace(/#.*$/, '').trim();
+        if (!line) continue;
+        const idx = line.indexOf(':');
+        if (idx < 0) continue;
+        const k = line.slice(0, idx).trim().toLowerCase();
+        const v = line.slice(idx + 1).trim();
+        if (k === 'user-agent') {
+          if (!cur || cur._closed) { cur = { uas: [], rules: [] }; groups.push(cur); }
+          cur.uas.push(v.toLowerCase());
+        } else if (k === 'allow' || k === 'disallow') {
+          if (!cur) { cur = { uas: ['*'], rules: [] }; groups.push(cur); }
+          cur._closed = true;
+          cur.rules.push({ type: k, pattern: v });
+        }
+      }
+      return groups;
+    }
+
+    function patternToRegex(p) {
+      if (!p) return null;
+      let rx = '^';
+      for (let i = 0; i < p.length; i++) {
+        const c = p[i];
+        if (c === '*') rx += '.*';
+        else if (c === '$' && i === p.length - 1) rx += '$';
+        else rx += c.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+      }
+      return new RegExp(rx);
+    }
+
+    function pickGroup(groups, ua) {
+      const uaLow = ua.toLowerCase();
+      let best = null, bestLen = -1;
+      for (const g of groups) {
+        for (const u of g.uas) {
+          if (u === '*') { if (best === null) best = g; }
+          else if (uaLow.includes(u) && u.length > bestLen) { best = g; bestLen = u.length; }
+        }
+      }
+      return best;
+    }
+
+    function check(groups, ua, path) {
+      const g = pickGroup(groups, ua);
+      if (!g) return { allowed: true, reason: 'no matching group → allowed by default' };
+      let winner = null;
+      for (const r of g.rules) {
+        const rx = patternToRegex(r.pattern);
+        if (!rx) continue;
+        if (rx.test(path)) {
+          const len = r.pattern.length;
+          if (!winner || len > winner.len || (len === winner.len && r.type === 'allow' && winner.type === 'disallow')) {
+            winner = { type: r.type, pattern: r.pattern, len };
+          }
+        }
+      }
+      if (!winner) return { allowed: true, reason: 'no rule matched → allowed' };
+      return { allowed: winner.type === 'allow', reason: `${winner.type}: ${winner.pattern}` };
+    }
+
+    $('test').addEventListener('click', () => {
+      hide(err);
+      const path = $('path').value.trim() || '/';
+      const ua = $('ua').value.trim() || '*';
+      try {
+        const groups = parse($('robots').value);
+        const r = check(groups, ua, path);
+        const verdict = r.allowed ? 'ALLOWED' : 'BLOCKED';
+        show(out, `${verdict}\nua: ${ua}\npath: ${path}\nrule: ${r.reason}`, r.allowed ? 'allow' : null);
+      } catch (e) { show(err, e.message); }
+    });
+  })();
+</script>

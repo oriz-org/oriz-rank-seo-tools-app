@@ -1,15 +1,23 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="sitemap.xml validator — Oriz SEO" description="sitemap.xml validator — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="Sitemap inspector — Oriz SEO" description="Parse and inspect XML sitemaps. Count URLs, check lastmod, find issues. Runs in your browser.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">sitemap.xml validator</h1>
-    <p class="status mono">coming · v0.1</p>
-    <p class="lede">
-      This feature is on the v0.1 roadmap. The page exists so we can iterate on
-      the design and copy in parallel; the implementation lands next sprint.
-    </p>
+    <h1 class="h1">Sitemap inspector</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste a sitemap.xml (urlset or sitemapindex) and we'll parse it, count URLs, check <code>lastmod</code> freshness, and flag common issues. CORS often blocks fetch-by-URL, so paste content directly.</p>
+
+    <div class="app">
+      <label class="lbl">XML
+        <textarea id="xml" class="io" rows="12" placeholder='<?xml version="1.0" encoding="UTF-8"?>&#10;<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">&#10;  <url><loc>https://example.com/</loc><lastmod>2026-01-01</lastmod></url>&#10;</urlset>'></textarea>
+      </label>
+      <div class="row">
+        <button id="parse" class="btn primary">Inspect</button>
+      </div>
+      <div id="out" class="out hidden"></div>
+      <div id="err" class="err hidden"></div>
+    </div>
   </article>
 </BaseLayout>
 
@@ -21,18 +29,85 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
   .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
-  .io {
-    width: 100%;
-    padding: 1rem;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    resize: vertical;
-  }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin-bottom: 2rem; }
+  .app { display: flex; flex-direction: column; gap: 1rem; }
+  .lbl { display: flex; flex-direction: column; gap: 0.4rem; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  .io { width: 100%; padding: 0.75rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); font-family: var(--font-mono); font-size: 0.875rem; resize: vertical; }
+  .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .btn { padding: 0.6rem 1rem; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); cursor: pointer; font-family: var(--font-mono); font-size: 12px; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .out { background: var(--paper-2); border: 1px solid var(--rule); padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; white-space: pre-wrap; max-height: 60vh; overflow: auto; }
+  .err { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .hidden { display: none; }
+  .warn { color: #b08800; }
+  .bad { color: var(--accent); }
+  .ok { color: var(--accent); }
 </style>
+
+<script is:inline>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const out = $('out'), err = $('err');
+    const show = (el, t) => { el.innerHTML = t; el.classList.remove('hidden'); };
+    const hide = (el) => el.classList.add('hidden');
+
+    function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+    $('parse').addEventListener('click', () => {
+      hide(err); hide(out);
+      const xml = $('xml').value.trim();
+      if (!xml) { err.textContent = 'Paste some XML first.'; err.classList.remove('hidden'); return; }
+      try {
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        const perr = doc.querySelector('parsererror');
+        if (perr) { err.textContent = 'XML parse error: ' + perr.textContent.slice(0, 200); err.classList.remove('hidden'); return; }
+        const root = doc.documentElement;
+        const tag = root.tagName.toLowerCase();
+        const lines = [];
+        if (tag === 'sitemapindex') {
+          const sm = Array.from(root.getElementsByTagName('sitemap'));
+          lines.push(`<span class="ok">sitemap index · ${sm.length} child sitemaps</span>`);
+          sm.slice(0, 50).forEach((s, i) => {
+            const loc = s.getElementsByTagName('loc')[0]?.textContent || '(no loc)';
+            const lm = s.getElementsByTagName('lastmod')[0]?.textContent || '';
+            lines.push(`  ${i + 1}. ${esc(loc)}${lm ? ` · lastmod=${esc(lm)}` : ''}`);
+          });
+          if (sm.length > 50) lines.push(`  …and ${sm.length - 50} more`);
+        } else if (tag === 'urlset') {
+          const urls = Array.from(root.getElementsByTagName('url'));
+          lines.push(`<span class="ok">urlset · ${urls.length} URLs</span>`);
+          if (urls.length > 50000) lines.push(`<span class="bad">exceeds 50,000-URL limit per sitemap</span>`);
+          let withLastmod = 0, withPriority = 0, withChangefreq = 0, stale = 0;
+          const yearAgo = Date.now() - 365 * 86400 * 1000;
+          const seen = new Map();
+          urls.forEach((u) => {
+            const loc = u.getElementsByTagName('loc')[0]?.textContent?.trim();
+            const lm = u.getElementsByTagName('lastmod')[0]?.textContent?.trim();
+            if (u.getElementsByTagName('priority').length) withPriority++;
+            if (u.getElementsByTagName('changefreq').length) withChangefreq++;
+            if (lm) {
+              withLastmod++;
+              const t = Date.parse(lm);
+              if (!Number.isNaN(t) && t < yearAgo) stale++;
+            }
+            if (loc) seen.set(loc, (seen.get(loc) || 0) + 1);
+          });
+          const dups = [...seen.entries()].filter(([, n]) => n > 1);
+          lines.push(`  with <lastmod>: ${withLastmod}/${urls.length}`);
+          lines.push(`  with <changefreq>: ${withChangefreq}/${urls.length}`);
+          lines.push(`  with <priority>: ${withPriority}/${urls.length}`);
+          if (stale) lines.push(`  <span class="warn">stale (lastmod > 1y): ${stale}</span>`);
+          if (dups.length) lines.push(`  <span class="bad">duplicates: ${dups.length}</span>`);
+          const xmlBytes = new TextEncoder().encode(xml).length;
+          lines.push(`  size: ${(xmlBytes / 1024).toFixed(1)} KiB${xmlBytes > 52428800 ? ' (exceeds 50 MiB limit)' : ''}`);
+        } else {
+          err.textContent = `Unexpected root element <${tag}> — expected <urlset> or <sitemapindex>`;
+          err.classList.remove('hidden');
+          return;
+        }
+        show(out, lines.join('\n'));
+      } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+    });
+  })();
+</script>

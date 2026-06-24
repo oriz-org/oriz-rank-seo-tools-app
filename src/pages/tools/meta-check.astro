@@ -1,15 +1,74 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro'
 ---
-<BaseLayout title="meta-tag check — Oriz SEO" description="meta-tag check — runs in your browser. Part of Oriz SEO.">
+<BaseLayout title="Meta Tag Preview — Oriz SEO" description="Paste a URL or HTML to preview how it looks on Google, Twitter, and Facebook. Server-side fetch avoids CORS.">
   <article class="tool">
     <p class="back mono"><a href="/">← all tools</a></p>
-    <h1 class="h1">meta-tag check</h1>
-    <p class="status mono">coming · v0.1</p>
-    <p class="lede">
-      This feature is on the v0.1 roadmap. The page exists so we can iterate on
-      the design and copy in parallel; the implementation lands next sprint.
-    </p>
+    <h1 class="h1">Meta Tag Preview</h1>
+    <p class="status mono ready">ready · v1</p>
+    <p class="lede">Paste a URL to fetch meta tags server-side, or paste raw HTML to extract them locally. See how your page renders on Google, Twitter (X), and Facebook.</p>
+
+    <div class="meta-app">
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="tab-url" role="tab" aria-selected="true" aria-controls="panel-url">URL</button>
+        <button class="tab" id="tab-html" role="tab" aria-selected="false" aria-controls="panel-html">HTML</button>
+      </div>
+
+      <div id="panel-url" role="tabpanel" class="panel">
+        <div class="url-row">
+          <input id="url-input" type="url" class="field-input" placeholder="https://example.com/" />
+          <button id="fetch-btn" class="btn-primary">Fetch</button>
+        </div>
+        <p id="fetch-error" class="error-msg hidden"></p>
+      </div>
+
+      <div id="panel-html" role="tabpanel" class="panel hidden">
+        <textarea id="html-input" class="io" placeholder="Paste full HTML here…" rows="10"></textarea>
+        <button id="parse-btn" class="btn-primary" style="margin-top:0.75rem">Parse HTML</button>
+      </div>
+
+      <div id="results" class="results hidden">
+        <div class="raw-tags">
+          <p class="section-label mono">Extracted Tags</p>
+          <div id="tags-table" class="tags-table"></div>
+        </div>
+
+        <div class="previews">
+          <p class="section-label mono">Previews</p>
+
+          <p class="preview-title mono">Google</p>
+          <div class="serp-card">
+            <p class="serp-url" id="goog-url"></p>
+            <p class="serp-title" id="goog-title"></p>
+            <p class="serp-desc" id="goog-desc"></p>
+          </div>
+
+          <p class="preview-title mono" style="margin-top:1.5rem">Twitter / X card</p>
+          <div class="tw-card">
+            <div id="tw-img-wrap" class="tw-img-wrap hidden">
+              <img id="tw-img" class="tw-img" src="" alt="Twitter card image" />
+            </div>
+            <div class="tw-body">
+              <p class="tw-title" id="tw-title"></p>
+              <p class="tw-desc" id="tw-desc"></p>
+              <p class="tw-domain mono" id="tw-domain"></p>
+            </div>
+          </div>
+
+          <p class="preview-title mono" style="margin-top:1.5rem">Facebook / Open Graph</p>
+          <div class="fb-card">
+            <div id="fb-img-wrap" class="fb-img-wrap hidden">
+              <img id="fb-img" class="fb-img" src="" alt="OG image" />
+            </div>
+            <div class="fb-body">
+              <p class="fb-domain mono" id="fb-domain"></p>
+              <p class="fb-title" id="fb-title"></p>
+              <p class="fb-desc" id="fb-desc"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </article>
 </BaseLayout>
 
@@ -19,20 +78,237 @@ import BaseLayout from '~/layouts/BaseLayout.astro'
   .back a { color: var(--muted); text-decoration: none; }
   .back a:hover { color: var(--ink); }
   .h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.75rem, 4vw, 2.5rem); margin: 0 0 0.5rem; line-height: 1.1; }
-  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 2rem; }
+  .status { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 0.5rem; }
   .status.ready { color: var(--accent); }
-  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 56ch; }
-  .placeholder { max-width: 60ch; }
-  .placeholder p { color: var(--muted); margin: 0 0 1rem; }
+  .lede { font-size: 1rem; color: var(--muted); line-height: 1.6; max-width: 60ch; margin: 0 0 2rem; }
+
+  .meta-app { max-width: 72ch; }
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--rule); margin-bottom: 1.25rem; }
+  .tab {
+    padding: 0.5rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    color: var(--muted);
+    transition: color 120ms, border-color 120ms;
+  }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+
+  .panel { }
+  .hidden { display: none; }
+
+  .url-row { display: flex; gap: 0.5rem; }
+  .field-input {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+  }
+  .field-input:focus { outline: none; border-color: var(--accent); }
+  .btn-primary {
+    padding: 0.6rem 1.25rem;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 120ms;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error-msg { font-size: 0.875rem; color: var(--accent); margin-top: 0.5rem; }
   .io {
     width: 100%;
     padding: 1rem;
     background: var(--paper-2);
     border: 1px solid var(--rule);
     color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
     resize: vertical;
   }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 0.75rem; }
+  .io:focus { outline: none; border-color: var(--accent); }
+
+  .results { margin-top: 2rem; display: flex; flex-direction: column; gap: 2rem; }
+  .section-label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.75rem; }
+
+  .tags-table { display: grid; grid-template-columns: max-content 1fr; gap: 0 1rem; font-size: 0.8125rem; }
+  .tag-key { font-family: var(--font-mono); color: var(--muted); padding: 0.3rem 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  .tag-val { padding: 0.3rem 0; border-bottom: 1px solid var(--rule); word-break: break-all; }
+
+  .preview-title { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 0.5rem; text-transform: uppercase; }
+
+  /* Google SERP */
+  .serp-card { border: 1px solid var(--rule); padding: 1rem 1.25rem; background: #fff; font-family: arial, sans-serif; max-width: 600px; }
+  .serp-url { font-size: 13px; color: #202124; margin: 0 0 2px; }
+  .serp-title { font-size: 20px; color: #1a0dab; margin: 0 0 4px; line-height: 1.3; }
+  .serp-desc { font-size: 14px; color: #4d5156; margin: 0; line-height: 1.58; }
+
+  /* Twitter card */
+  .tw-card { border: 1px solid #cfd9de; border-radius: 16px; overflow: hidden; max-width: 500px; background: #fff; }
+  .tw-img-wrap { width: 100%; aspect-ratio: 2/1; overflow: hidden; background: #f7f9f9; }
+  .tw-img { width: 100%; height: 100%; object-fit: cover; }
+  .tw-body { padding: 0.75rem 1rem; }
+  .tw-title { font-size: 15px; font-weight: 700; margin: 0 0 2px; color: #0f1419; font-family: -apple-system, sans-serif; }
+  .tw-desc { font-size: 14px; color: #536471; margin: 0 0 4px; font-family: -apple-system, sans-serif; }
+  .tw-domain { font-size: 13px; color: #536471; margin: 0; text-transform: lowercase; }
+
+  /* Facebook OG card */
+  .fb-card { border: 1px solid #dddfe2; max-width: 500px; background: #f2f3f5; font-family: -apple-system, Helvetica, Arial, sans-serif; }
+  .fb-img-wrap { width: 100%; aspect-ratio: 1.91/1; overflow: hidden; background: #dddfe2; }
+  .fb-img { width: 100%; height: 100%; object-fit: cover; }
+  .fb-body { padding: 0.75rem; background: #f2f3f5; border-top: 1px solid #dddfe2; }
+  .fb-domain { font-size: 12px; color: #606770; text-transform: uppercase; margin: 0 0 2px; }
+  .fb-title { font-size: 16px; font-weight: 600; margin: 0 0 2px; color: #1d2129; }
+  .fb-desc { font-size: 14px; color: #606770; margin: 0; }
 </style>
+
+<script>
+  // Tab switching
+  const tabUrl = document.getElementById('tab-url')!
+  const tabHtml = document.getElementById('tab-html')!
+  const panelUrl = document.getElementById('panel-url')!
+  const panelHtml = document.getElementById('panel-html')!
+
+  tabUrl.addEventListener('click', () => {
+    tabUrl.classList.add('active'); tabUrl.setAttribute('aria-selected', 'true')
+    tabHtml.classList.remove('active'); tabHtml.setAttribute('aria-selected', 'false')
+    panelUrl.classList.remove('hidden'); panelHtml.classList.add('hidden')
+  })
+  tabHtml.addEventListener('click', () => {
+    tabHtml.classList.add('active'); tabHtml.setAttribute('aria-selected', 'true')
+    tabUrl.classList.remove('active'); tabUrl.setAttribute('aria-selected', 'false')
+    panelHtml.classList.remove('hidden'); panelUrl.classList.add('hidden')
+  })
+
+  // Fetch via proxy
+  const fetchBtn = document.getElementById('fetch-btn') as HTMLButtonElement
+  const urlInput = document.getElementById('url-input') as HTMLInputElement
+  const fetchError = document.getElementById('fetch-error')!
+
+  fetchBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim()
+    if (!url) return
+    fetchBtn.disabled = true
+    fetchBtn.textContent = 'Fetching…'
+    fetchError.classList.add('hidden')
+    try {
+      const res = await fetch(`/api/fetch-meta?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      renderResults(data, url)
+    } catch (err) {
+      fetchError.textContent = `Error: ${(err as Error).message}`
+      fetchError.classList.remove('hidden')
+    } finally {
+      fetchBtn.disabled = false
+      fetchBtn.textContent = 'Fetch'
+    }
+  })
+
+  // Parse HTML locally
+  const parseBtn = document.getElementById('parse-btn')!
+  const htmlInput = document.getElementById('html-input') as HTMLTextAreaElement
+  parseBtn.addEventListener('click', () => {
+    const html = htmlInput.value
+    if (!html.trim()) return
+    const data = parseHtml(html)
+    renderResults(data, '')
+  })
+
+  function parseHtml(html: string): Record<string, string> {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const meta: Record<string, string> = {}
+    meta.title = doc.title ?? ''
+    doc.querySelectorAll('meta').forEach(el => {
+      const name = (el.getAttribute('name') ?? '').toLowerCase()
+      const prop = (el.getAttribute('property') ?? '').toLowerCase()
+      const content = el.getAttribute('content') ?? ''
+      if (name === 'description') meta.description = content
+      if (prop === 'og:title') meta.ogTitle = content
+      if (prop === 'og:description') meta.ogDescription = content
+      if (prop === 'og:image') meta.ogImage = content
+      if (prop === 'og:url') meta.ogUrl = content
+      if (prop === 'og:type') meta.ogType = content
+      if (name === 'twitter:card') meta.twitterCard = content
+      if (name === 'twitter:title') meta.twitterTitle = content
+      if (name === 'twitter:description') meta.twitterDescription = content
+      if (name === 'twitter:image') meta.twitterImage = content
+    })
+    const canonical = doc.querySelector('link[rel="canonical"]')
+    meta.canonical = canonical?.getAttribute('href') ?? ''
+    return meta
+  }
+
+  function renderResults(data: Record<string, string>, sourceUrl: string) {
+    const results = document.getElementById('results')!
+    results.classList.remove('hidden')
+
+    // Tags table
+    const pairs: [string, string][] = [
+      ['title', data.title ?? ''],
+      ['description', data.description ?? ''],
+      ['og:title', data.ogTitle ?? ''],
+      ['og:description', data.ogDescription ?? ''],
+      ['og:image', data.ogImage ?? ''],
+      ['og:url', data.ogUrl ?? ''],
+      ['og:type', data.ogType ?? ''],
+      ['twitter:card', data.twitterCard ?? ''],
+      ['twitter:title', data.twitterTitle ?? ''],
+      ['twitter:description', data.twitterDescription ?? ''],
+      ['twitter:image', data.twitterImage ?? ''],
+      ['canonical', data.canonical ?? ''],
+    ]
+    const tagsTable = document.getElementById('tags-table')!
+    tagsTable.innerHTML = pairs.map(([k, v]) => `
+      <span class="tag-key">${k}</span>
+      <span class="tag-val">${v || '<em style="color:var(--muted)">—</em>'}</span>
+    `).join('')
+
+    // Google preview
+    let domain = ''
+    try { domain = new URL(sourceUrl || data.ogUrl || '').hostname } catch { domain = sourceUrl }
+    document.getElementById('goog-url')!.textContent = domain
+    document.getElementById('goog-title')!.textContent = data.ogTitle || data.title || '(no title)'
+    document.getElementById('goog-desc')!.textContent = data.description || data.ogDescription || '(no description)'
+
+    // Twitter preview
+    document.getElementById('tw-title')!.textContent = data.twitterTitle || data.ogTitle || data.title || '(no title)'
+    document.getElementById('tw-desc')!.textContent = data.twitterDescription || data.ogDescription || data.description || ''
+    document.getElementById('tw-domain')!.textContent = domain
+    const twImg = document.getElementById('tw-img') as HTMLImageElement
+    const twImgWrap = document.getElementById('tw-img-wrap')!
+    if (data.twitterImage || data.ogImage) {
+      twImg.src = data.twitterImage || data.ogImage
+      twImgWrap.classList.remove('hidden')
+    } else {
+      twImgWrap.classList.add('hidden')
+    }
+
+    // Facebook preview
+    document.getElementById('fb-domain')!.textContent = domain
+    document.getElementById('fb-title')!.textContent = data.ogTitle || data.title || '(no title)'
+    document.getElementById('fb-desc')!.textContent = data.ogDescription || data.description || ''
+    const fbImg = document.getElementById('fb-img') as HTMLImageElement
+    const fbImgWrap = document.getElementById('fb-img-wrap')!
+    if (data.ogImage) {
+      fbImg.src = data.ogImage
+      fbImgWrap.classList.remove('hidden')
+    } else {
+      fbImgWrap.classList.add('hidden')
+    }
+  }
+
+  // Enter key on URL input
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchBtn.click() })
+</script>
